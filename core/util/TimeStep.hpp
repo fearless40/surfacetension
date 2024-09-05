@@ -5,7 +5,7 @@
 #include <iostream>
 
 
-namespace Util
+namespace util
 {
 
 	using namespace std::chrono_literals;

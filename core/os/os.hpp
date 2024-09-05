@@ -1,11 +1,13 @@
 #pragma once
 
-namespace os
-{
-#ifdef _WIN64
-    extern void game_main();
-    void create_window();
-    void create_console();
-#endif
+extern void game_main();
 
-}
+namespace os {
+namespace console {
+bool connect();
+void disconnect();
+} // namespace console
+
+bool create_main_window();
+void run_event_loop();
+} // namespace os

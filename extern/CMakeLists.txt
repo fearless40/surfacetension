@@ -9,3 +9,13 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(D3D12MemoryAllocator)
 
+FetchContent_Declare(
+    spdlog 
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/spdlog"
+    GIT_PROGRESS True
+)
+
+FetchContent_MakeAvailable(spdlog)
+
+
