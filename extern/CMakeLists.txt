@@ -19,3 +19,4 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spdlog)
 
 
+add_subdirectory(DirectXTK12)

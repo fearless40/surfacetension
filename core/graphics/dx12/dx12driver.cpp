@@ -1,7 +1,15 @@
 
 #include "dx12driver.hpp"
 #include "dx12helpers.hpp"
-#include "../dxgi/dxgi.hpp"
+#include "dxgi.hpp"
+
+RTVDescriptorHeap
+D3D12Driver::CreateDescriptorHeap( const D3D12_DESCRIPTOR_HEAP_DESC& descr ) {
+  ComPtr<ID3D12DescriptorHeap> heap;
+  ThrowIfFailed(m_device->CreateDescriptorHeap(&descr, IID_PPV_ARGS(&heap)));
+  return {m_device->GetDescriptorHandleIncrementSize(&descr), heap};
+}
+
 
 void D3D12Driver::LoadPipeline(const LoadPiplineOptions &options)
 {
@@ -70,7 +78,7 @@ void D3D12Driver::LoadPipeline(const LoadPiplineOptions &options)
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.SampleDesc.Count = 1;
 
-    m_swapchain_resolution = {options.width, options.height};
+    m_swapchainResolution = {options.width, options.height};
 
     // It is recommended to always use the tearing flag when it is available.
     swapChainDesc.Flags = m_tearingSupport ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
@@ -102,13 +110,6 @@ void D3D12Driver::LoadPipeline(const LoadPiplineOptions &options)
         rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
         ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
-
-        // Describe and create a constant buffer view (CBV) and shader resource view (SRV) descriptor heap.
-        D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-        cbvSrvHeapDesc.NumDescriptors = FrameCount + 1; // One CBV per frame and one SRV for the intermediate render target.
-        cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&m_cbvSrvHeap)));
 
         m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         m_cbvSrvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
