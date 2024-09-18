@@ -72,4 +72,5 @@ bool create_main_window() {
 
 void run_event_loop() { g_main_window->run(); }
 
+
 } // namespace os

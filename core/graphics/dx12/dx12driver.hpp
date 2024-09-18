@@ -1,9 +1,5 @@
 #pragma once
 
-#include <dxgi1_6.h>
-#include <d3d12.h>
-#include <wrl.h>
-#include "d3dx12.h"
 
 // Note that while ComPtr is used to manage the lifetime of resources on the CPU,
 // it has no understanding of the lifetime of resources on the GPU. Apps must account
@@ -134,4 +130,3 @@ private:
     // The IDeviceNotify can be held directly as it owns the DeviceResources.
     // IDeviceNotify *m_deviceNotify;
 };
-}

@@ -2,7 +2,10 @@
 // D3D12Driver.cpp - A wrapper for the Direct3D 12 device and swapchain
 //
 
+#include <stdexcept>
+#include <utility>
 #include "dx12driver.hpp"
+#include "dx12helpers.hpp"
 
 using namespace DirectX;
 
@@ -60,8 +63,8 @@ D3D12Driver::D3D12Driver(
                                           m_dxgiFactoryFlags(0),
                                           m_outputSize{0, 0, 1, 1},
                                           m_colorSpace(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709),
-                                          m_options(flags),
-                                          m_deviceNotify(nullptr)
+                                          m_options(flags)
+                                          //m_deviceNotify(nullptr)
 {
     if (backBufferCount < 2 || backBufferCount > MAX_BACK_BUFFER_COUNT)
     {
@@ -447,10 +450,10 @@ bool D3D12Driver::WindowSizeChanged(int width, int height)
 // Recreate all device resources and set them back to the current state.
 void D3D12Driver::HandleDeviceLost()
 {
-    if (m_deviceNotify)
+    /*if (m_deviceNotify)
     {
         m_deviceNotify->OnDeviceLost();
-    }
+    }*/
 
     for (UINT n = 0; n < m_backBufferCount; n++)
     {
@@ -481,10 +484,10 @@ void D3D12Driver::HandleDeviceLost()
     CreateDeviceResources();
     CreateWindowSizeDependentResources();
 
-    if (m_deviceNotify)
+    /*if (m_deviceNotify)
     {
         m_deviceNotify->OnDeviceRestored();
-    }
+    }*/
 }
 
 // Prepare the command list and render target for rendering.

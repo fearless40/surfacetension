@@ -1,7 +1,7 @@
 #pragma once
 #include "TimeStep.hpp"
 #include "Window.h"
-
+#include "dx12driver.hpp"
 
 
 /*namespace Graphics::D3D11 {
@@ -28,6 +28,7 @@ private:
   HACCEL mAccelTable;
   util::TimeStep timer;
   bool mRunning;
-  //	Graphics::D3D11::Driver * graphics_driver{ nullptr };
+  
+  D3D12Driver m_driver;
 };
 } // namespace os

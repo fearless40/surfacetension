@@ -6,9 +6,14 @@ add_library(windows STATIC ${files} ${headers})
 add_library(os::windows ALIAS windows)
 
 target_include_directories(windows PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(windows PUBLIC os)
-target_link_libraries(windows PUBLIC math)
-target_link_libraries(windows PUBLIC util)
+target_link_libraries(windows 
+    PUBLIC os
+    PUBLIC math
+    PUBLIC util
+    PRIVATE DirectX-Headers
+    PRIVATE dx12
+)
+
 target_link_libraries(windows PRIVATE 
     kernel32.lib
     user32.lib
@@ -23,3 +28,4 @@ target_link_libraries(windows PRIVATE
     odbc32.lib
     odbccp32.lib
 )
+target_precompile_headers(windows PRIVATE pch.hpp)

@@ -5,7 +5,13 @@ add_library( dx12
 )
 
 target_include_directories( dx12 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries( dx12 PRIVATE dxgi d3d12.lib directx-headers)
+target_link_libraries( dx12 
+    PRIVATE 
+        d3d12.lib dxgi.lib dxguid.lib
+        dxgi 
+        DirectX-Headers windows
+)
+target_precompile_headers(dx12 REUSE_FROM windows)
 
 
 add_subdirectory(techniques)

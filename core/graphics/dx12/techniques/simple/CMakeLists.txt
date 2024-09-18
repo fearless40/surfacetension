@@ -4,7 +4,11 @@ add_library( d12SimpleRender
 )
 
 target_include_directories( d12SimpleRender PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} )
-target_link_libraries( d12SimpleRender dx12 )
+target_link_libraries( d12SimpleRender 
+    PRIVATE  dx12
+    PRIVATE  D3D12MemoryAllocator
+)
+
 add_library( dx12::SimpleRender ALIAS d12SimpleRender )
 
 

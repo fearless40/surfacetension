@@ -1,22 +1,10 @@
 
-
-
-//#include <d3d11.h>
-//#include <string>
-//#include <functional>
-//#include <vector>
-//#include <span>
-//#include "Resource.h"
-#include "Window.h"
 #include "WindowsGame.h"
-//#include "../engine/GameEvent.h"
-//#include "../engine/Event.h"
-//#include "../Graphics/D3D11/Driver.h"
-//#include "Globals.h"
-//#include "../Graphics/D3D11/Render.h"
-//#include "../Graphics/D3D11/VisualInit.h"
+#include "Event.hpp"
+#include "Window.h"
+#include "os.hpp"
 
-//#include "../game-gwell/Game.h"
+// #include "../game-gwell/Game.h"
 namespace os::windows {
 WindowsGame::~WindowsGame() {
   // delete graphics_driver;
@@ -27,6 +15,7 @@ WindowsGame::WindowsGame(HINSTANCE hInstance)
   Window::RegisterWindowClasses(mInst, NULL, NULL, L"D3D Window", L"D3DWindow");
   mAccelTable = LoadAccelerators(mInst, (LPCTSTR)NULL);
   setHWND(Window::createHWND(0, L"D3DWindow"));
+
   show();
 }
 
@@ -39,17 +28,10 @@ void WindowsGame::run() {
   unsigned int width = wndSize.right - wndSize.left;
   unsigned int height = wndSize.bottom - wndSize.top;
 
-  /*graphics_driver = Graphics::D3D11::Driver::CreateDevice(
-                        getHWND(), {width, height, {0, 0}, false, false})
-                        .release();
-  graphics_driver->setupDefaults();
+  m_driver.SetWindow(getHWND(), width, height);
+  m_driver.CreateDeviceResources();
+  m_driver.CreateWindowSizeDependentResources();
 
-  Engine::Visuals::Basic::Init(graphics_driver);
-
-  Game::Initalize();
-
-  Events::Event<Engine::GameInitalizeData>::Fire({});
-  */
   timer.start();
 
   while (mRunning) {
@@ -83,17 +65,39 @@ void WindowsGame::next_frame() {
 }
 
 void WindowsGame::next_game_step(float step) {
-  //Events::Event<Engine::NextLogicFrame>::Fire({step});
+  Events::Event<os::NextLogicFrame>::Fire({step});
 }
 
 void WindowsGame::next_render_step(float step) {
-  //Events::Event<Engine::NextRenderFrame>::Fire({step});
+  Events::Event<os::NextRenderFrame>::Fire({step});
+
+  m_driver.Prepare();
+  auto commandList = m_driver.GetCommandList();
+
+  // Clear the views.
+  auto const rtvDescriptor = m_driver.GetRenderTargetView();
+  auto const dsvDescriptor = m_driver.GetDepthStencilView();
+
+  float colors[4] = {0.2f, .2f, 1.f, 0.f};
+
+  commandList->OMSetRenderTargets(1, &rtvDescriptor, FALSE, &dsvDescriptor);
+  commandList->ClearRenderTargetView(rtvDescriptor, colors, 0, nullptr);
+  commandList->ClearDepthStencilView(dsvDescriptor, D3D12_CLEAR_FLAG_DEPTH,
+                                     1.0f, 0, 0, nullptr);
+
+  // Set the viewport and scissor rect.
+  auto const viewport = m_driver.GetScreenViewport();
+  auto const scissorRect = m_driver.GetScissorRect();
+  commandList->RSSetViewports(1, &viewport);
+  commandList->RSSetScissorRects(1, &scissorRect);
+
+  m_driver.Present();
 }
 
 void WindowsGame::onSize(RectInt newSize) {}
 
 void WindowsGame::onKey(WORD vkCode, bool isKeyUp, int repeatCount) {
-  //Events::Event<Engine::KeyEvent>::Fire({vkCode, isKeyUp, repeatCount});
+  // Events::Event<Engine::KeyEvent>::Fire({vkCode, isKeyUp, repeatCount});
 }
 
-} // namespace os
+} // namespace os::windows
