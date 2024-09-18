@@ -3,149 +3,135 @@
 #include <dxgi1_6.h>
 #include <d3d12.h>
 #include <wrl.h>
-
-using namespace DirectX;
+#include "d3dx12.h"
 
 // Note that while ComPtr is used to manage the lifetime of resources on the CPU,
 // it has no understanding of the lifetime of resources on the GPU. Apps must account
 // for the GPU lifetime of resources to avoid destroying objects that may still be
 // referenced by the GPU.
 // An example of this can be found in the class method: OnDestroy().
-using Microsoft::WRL::ComPtr;
 
-using uint = unsigned int; 
-using uint64 = unsigned long; 
+using uint = unsigned int;
+using uint64 = unsigned long;
 
-// Illustrate how to handle window resizing and fullscreen mode.
+// Used from directx-vs-templates
 class D3D12Driver
 {
 public:
-    struct Resolution
+    static constexpr unsigned int c_AllowTearing = 0x1;
+    static constexpr unsigned int c_EnableHDR = 0x2;
+    static constexpr unsigned int c_ReverseDepth = 0x4;
+
+    D3D12Driver(DXGI_FORMAT backBufferFormat = DXGI_FORMAT_B8G8R8A8_UNORM,
+                DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT,
+                UINT backBufferCount = 2,
+                D3D_FEATURE_LEVEL minFeatureLevel = D3D_FEATURE_LEVEL_11_0,
+                unsigned int flags = 0) noexcept(false);
+    ~D3D12Driver();
+
+    D3D12Driver(D3D12Driver &&) = default;
+    D3D12Driver &operator=(D3D12Driver &&) = default;
+
+    D3D12Driver(D3D12Driver const &) = delete;
+    D3D12Driver &operator=(D3D12Driver const &) = delete;
+
+    void CreateDeviceResources();
+    void CreateWindowSizeDependentResources();
+    void SetWindow(HWND window, int width, int height) noexcept;
+    bool WindowSizeChanged(int width, int height);
+    void HandleDeviceLost();
+    // void RegisterDeviceNotify(IDeviceNotify* deviceNotify) noexcept { m_deviceNotify = deviceNotify; }
+    void Prepare(D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_PRESENT,
+                 D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_RENDER_TARGET);
+    void Present(D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_RENDER_TARGET);
+    void WaitForGpu() noexcept;
+    void UpdateColorSpace();
+
+    // Device Accessors.
+    RECT GetOutputSize() const noexcept { return m_outputSize; }
+
+    // Direct3D Accessors.
+    auto GetD3DDevice() const noexcept { return m_d3dDevice.Get(); }
+    auto GetSwapChain() const noexcept { return m_swapChain.Get(); }
+    auto GetDXGIFactory() const noexcept { return m_dxgiFactory.Get(); }
+    HWND GetWindow() const noexcept { return m_window; }
+    D3D_FEATURE_LEVEL GetDeviceFeatureLevel() const noexcept { return m_d3dFeatureLevel; }
+    ID3D12Resource *GetRenderTarget() const noexcept { return m_renderTargets[m_backBufferIndex].Get(); }
+    ID3D12Resource *GetDepthStencil() const noexcept { return m_depthStencil.Get(); }
+    ID3D12CommandQueue *GetCommandQueue() const noexcept { return m_commandQueue.Get(); }
+    ID3D12CommandAllocator *GetCommandAllocator() const noexcept { return m_commandAllocators[m_backBufferIndex].Get(); }
+    auto GetCommandList() const noexcept { return m_commandList.Get(); }
+    DXGI_FORMAT GetBackBufferFormat() const noexcept { return m_backBufferFormat; }
+    DXGI_FORMAT GetDepthBufferFormat() const noexcept { return m_depthBufferFormat; }
+    D3D12_VIEWPORT GetScreenViewport() const noexcept { return m_screenViewport; }
+    D3D12_RECT GetScissorRect() const noexcept { return m_scissorRect; }
+    UINT GetCurrentFrameIndex() const noexcept { return m_backBufferIndex; }
+    UINT GetBackBufferCount() const noexcept { return m_backBufferCount; }
+    DXGI_COLOR_SPACE_TYPE GetColorSpace() const noexcept { return m_colorSpace; }
+    unsigned int GetDeviceOptions() const noexcept { return m_options; }
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetRenderTargetView() const noexcept
     {
-        unsigned int width;
-        unsigned int height;
-    };
-
-    struct SwapChainSyncronization
+        auto cpuHandle = m_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+        return CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuHandle, static_cast<INT>(m_backBufferIndex), m_rtvDescriptorSize);
+    }
+    CD3DX12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const noexcept
     {
-      uint64 fenceValue; 
-    };
-
-    static const uint SwapChainCount{2};
-
-protected:
-    // Swap chain details
-    unsigned int m_swapchainFrameCount{SwapChainCount};
-    Resolution m_swapchainResolution;
-    Resolution m_intermediateRenderTargetResolution;
-
-    // Synchronization objects.
-    UINT m_frameIndex;
-    HANDLE m_fenceEvent;
-    ComPtr<ID3D12Fence> m_fence;
-    UINT64 m_fenceValues[SwapChainCount];
-
-    SwapChainSyncronization m_swapchainSync; 
-
-    // Pipeline objects.
-    /*CD3DX12_VIEWPORT m_sceneViewport;
-    CD3DX12_VIEWPORT m_postViewport;
-    CD3DX12_RECT m_sceneScissorRect;
-    CD3DX12_RECT m_postScissorRect;*/
-    ComPtr<IDXGISwapChain3> m_swapChain;
-    ComPtr<ID3D12Device> m_device;
-    ComPtr<ID3D12Resource> m_renderTargets[SwapChainCount];
-    ComPtr<ID3D12Resource> m_intermediateRenderTarget;
-    ComPtr<ID3D12CommandAllocator> m_sceneCommandAllocators[SwapChainCount];
-    ComPtr<ID3D12CommandAllocator> m_postCommandAllocators[SwapChainCount];
-    ComPtr<ID3D12CommandQueue> m_commandQueue;
-    ComPtr<ID3D12RootSignature> m_sceneRootSignature;
-    ComPtr<ID3D12RootSignature> m_postRootSignature;
-    ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_cbvSrvHeap;
-    ComPtr<ID3D12PipelineState> m_scenePipelineState;
-    ComPtr<ID3D12PipelineState> m_postPipelineState;
-    ComPtr<ID3D12GraphicsCommandList> m_sceneCommandList;
-    ComPtr<ID3D12GraphicsCommandList> m_postCommandList;
-    
-    
-    UINT m_rtvDescriptorSize;
-    UINT m_cbvSrvDescriptorSize;
-
-public:
-    struct LoadPiplineOptions
-    {
-        unsigned int width;
-        unsigned int height;
-        unsigned int swapchain_frame_count{2};
-        HWND hwnd;
-        bool use_warp_device{false};
-    };
-
-    uint get_rtv_descriptor_size() { return m_rtvDescriptorSize; }
-    uint get_cbv_srv_descriptor_size() { return m_cbvSrvDescriptorSize; }
-
-    IDXGISwapChain *get_swapchain() { return m_swapChain.Get(); }
-    ID3D12Device *get_device() { return m_device.Get(); }
-    
-    void WaitForGpu();
-    
-protected:
-    virtual void OnInit();
-    virtual void OnUpdate();
-    virtual void OnRender();
-    virtual void OnSizeChanged(UINT width, UINT height, bool minimized);
-    virtual void OnWindowMoved(int, int);
-    virtual void OnDestroy();
-    virtual void OnKeyDown(UINT8 key);
+        auto cpuHandle = m_dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+        return CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuHandle);
+    }
 
 private:
-    static const UINT FrameCount = 2;
-    static const float QuadWidth;
-    static const float QuadHeight;
-    static const float LetterboxColor[4];
-    static const float ClearColor[4];
-
-    struct Resolution
-    {
-        UINT Width;
-        UINT Height;
-    };
-
-    static const Resolution m_resolutionOptions[];
-    static const UINT m_resolutionOptionsCount;
-    static UINT m_resolutionIndex; // Index of the current scene rendering resolution from m_resolutionOptions.
-
-    // App resources.
-    ComPtr<ID3D12Resource> m_sceneVertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW m_sceneVertexBufferView;
-    ComPtr<ID3D12Resource> m_postVertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW m_postVertexBufferView;
-    ComPtr<ID3D12Resource> m_sceneConstantBuffer;
-    SceneConstantBuffer m_sceneConstantBufferData;
-    UINT8 *m_pCbvDataBegin;
-
-    // Synchronization objects.
-    UINT m_frameIndex;
-    HANDLE m_fenceEvent;
-    ComPtr<ID3D12Fence> m_fence;
-    UINT64 m_fenceValues[FrameCount];
-
-    // Track the state of the window.
-    // If it's minimized the app may decide not to render frames.
-    bool m_windowVisible;
-    bool m_windowedMode;
-    bool m_tearingSupport;
-
-    void LoadPipeline(const LoadPiplineOptions &options);
-    void LoadAssets();
-    void RestoreD3DResources();
-    void ReleaseD3DResources();
-    void LoadSizeDependentResources();
-    void LoadSceneResolutionDependentResources();
-    void PopulateCommandLists();
-    void WaitForGpu();
     void MoveToNextFrame();
-    void UpdatePostViewAndScissor();
-    void UpdateTitle();
+    void GetAdapter(IDXGIAdapter1 **ppAdapter);
+
+    static constexpr size_t MAX_BACK_BUFFER_COUNT = 3;
+
+    UINT m_backBufferIndex;
+
+    // Direct3D objects.
+    Microsoft::WRL::ComPtr<ID3D12Device> m_d3dDevice;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocators[MAX_BACK_BUFFER_COUNT];
+
+    // Swap chain objects.
+    Microsoft::WRL::ComPtr<IDXGIFactory4> m_dxgiFactory;
+    Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_renderTargets[MAX_BACK_BUFFER_COUNT];
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_depthStencil;
+
+    // Presentation fence objects.
+    Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
+    UINT64 m_fenceValues[MAX_BACK_BUFFER_COUNT];
+    Microsoft::WRL::Wrappers::Event m_fenceEvent;
+
+    // Direct3D rendering objects.
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvDescriptorHeap;
+    UINT m_rtvDescriptorSize;
+    D3D12_VIEWPORT m_screenViewport;
+    D3D12_RECT m_scissorRect;
+
+    // Direct3D properties.
+    DXGI_FORMAT m_backBufferFormat;
+    DXGI_FORMAT m_depthBufferFormat;
+    UINT m_backBufferCount;
+    D3D_FEATURE_LEVEL m_d3dMinFeatureLevel;
+
+    // Cached device properties.
+    HWND m_window;
+    D3D_FEATURE_LEVEL m_d3dFeatureLevel;
+    DWORD m_dxgiFactoryFlags;
+    RECT m_outputSize;
+
+    // HDR Support
+    DXGI_COLOR_SPACE_TYPE m_colorSpace;
+
+    // DeviceResources options (see flags above)
+    unsigned int m_options;
+
+    // The IDeviceNotify can be held directly as it owns the DeviceResources.
+    // IDeviceNotify *m_deviceNotify;
 };
+}
